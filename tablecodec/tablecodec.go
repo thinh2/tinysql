@@ -43,6 +43,7 @@ const (
 	RecordRowKeyLen       = prefixLen + idLen /*handle*/
 	tablePrefixLength     = 1
 	recordPrefixSepLength = 2
+	indexPrefixSepLength  = 2
 )
 
 // TableSplitKeyLen is the length of key 't{table_id}' which is used for table split.
@@ -98,6 +99,20 @@ func DecodeRecordKey(key kv.Key) (tableID int64, handle int64, err error) {
 	 *   5. understanding the coding rules is a prerequisite for implementing this function,
 	 *      you can learn it in the projection 1-2 course documentation.
 	 */
+	if key == nil || len(key) != RecordRowKeyLen {
+		err = errInvalidRecordKey
+		return
+	}
+
+	key, tableID, err = codec.DecodeInt(key[tablePrefixLength:])
+	if err != nil {
+		return
+	}
+
+	key, handle, err = codec.DecodeInt(key[recordPrefixSepLength:])
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -148,7 +163,23 @@ func DecodeIndexKeyPrefix(key kv.Key) (tableID int64, indexID int64, indexValues
 	 *   5. understanding the coding rules is a prerequisite for implementing this function,
 	 *      you can learn it in the projection 1-2 course documentation.
 	 */
-	return tableID, indexID, indexValues, nil
+	if key == nil || len(key) < prefixLen+idLen {
+		err = errInvalidIndexKey
+		return
+	}
+
+	key, tableID, err = codec.DecodeInt(key[tablePrefixLength:])
+	if err != nil {
+		return
+	}
+
+	key, indexID, err = codec.DecodeInt(key[indexPrefixSepLength:])
+	if err != nil {
+		return
+	}
+
+	indexValues = append(indexValues, key...)
+	return
 }
 
 // DecodeIndexKey decodes the key and gets the tableID, indexID, indexValues.
